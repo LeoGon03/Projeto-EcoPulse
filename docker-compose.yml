@@ -1,0 +1,112 @@
+
+services:
+  # 1. Banco de Dados Geoespacial (PostGIS)
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: ecopulse_db
+    environment:
+      POSTGRES_DB: ecopulse_db
+      POSTGRES_USER: ecopulse_user
+      POSTGRES_PASSWORD: ecopulse_password
+    ports:
+    - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecopulse_user -d ecopulse_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Cache e Pub/Sub (Redis)
+  redis:
+    image: redis:7-alpine
+    container_name: ecopulse_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 3. Fila de Mensageria (RabbitMQ)
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: ecopulse_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ecopulse
+      RABBITMQ_DEFAULT_PASS: ecopulse_pass
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 4. API Backend (FastAPI + WebSockets)
+  api:
+    build:
+      context: ./API-Ingestao
+      dockerfile: Dockerfile
+    container_name: ecopulse_api
+    restart: on-failure
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=ecopulse_db
+      - DB_USER=ecopulse_user
+      - DB_PASS=ecopulse_password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=ecopulse
+      - RABBITMQ_PASS=ecopulse_pass
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./API-Ingestao:/app
+
+  # 5. Worker Consumidor Assíncrono com DLQ
+  worker:
+    build:
+      context: ./API-Ingestao
+      dockerfile: Dockerfile
+    container_name: ecopulse_worker
+    restart: on-failure
+    command: python consumer.py
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=ecopulse_db
+      - DB_USER=ecopulse_user
+      - DB_PASS=ecopulse_password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=ecopulse
+      - RABBITMQ_PASS=ecopulse_pass
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./API-Ingestao:/app
+
+volumes:
+  postgres_data:
