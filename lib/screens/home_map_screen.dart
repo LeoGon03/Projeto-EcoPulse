@@ -114,29 +114,32 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     );
   }
 
-  Future<void> _carregarRelatos() async {
+ Future<void> _carregarRelatos() async {
     if (!mounted) return;
     setState(() => _carregando = true);
     try {
+      final centroBusca = _mapController.camera.center;
+
       final relatosServidor = await ApiService.getRelatos(
-        latitude: _posicaoAtual.latitude,
-        longitude: _posicaoAtual.longitude,
+        latitude: centroBusca.latitude,
+        longitude: centroBusca.longitude,
       );
 
       if (mounted) {
         setState(() {
-          final relatosPendentesLocais = _relatos.where((r) => !r.isSynced).toList();
+          // Começa com a lista atualizada do servidor
           final List<RelatoModel> listaUnificada = [...relatosServidor];
 
-          for (final pendente in relatosPendentesLocais) {
+          // Preserva os relatos locais/WebSocket da tela que ainda não vieram na resposta do banco
+          for (final relatoExistente in _relatos) {
             final jaExisteNoServidor = listaUnificada.any((s) =>
-                (s.id != null && s.id == pendente.id) ||
-                (s.latitude == pendente.latitude &&
-                    s.longitude == pendente.longitude &&
-                    s.descricao == pendente.descricao));
+                (s.id != null && relatoExistente.id != null && s.id == relatoExistente.id) ||
+                ((s.latitude - relatoExistente.latitude).abs() < 0.0001 &&
+                    (s.longitude - relatoExistente.longitude).abs() < 0.0001 &&
+                    s.descricao == relatoExistente.descricao));
 
             if (!jaExisteNoServidor) {
-              listaUnificada.add(pendente);
+              listaUnificada.add(relatoExistente);
             }
           }
 
@@ -153,7 +156,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       }
     }
   }
-
   Future<void> _sincronizarRelatosOffline() async {
     setState(() => _sincronizando = true);
     try {
