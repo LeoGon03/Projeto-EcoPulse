@@ -518,4 +518,3 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     );
   }
 }
-}
