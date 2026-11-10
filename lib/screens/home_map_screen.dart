@@ -38,7 +38,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     super.dispose();
   }
 
-  // Solicita permissões e obtém as coordenadas GPS do dispositivo
   Future<void> _obterLocalizacaoAtual() async {
     bool serviceEnabled;
     LocationPermission permission;
@@ -126,7 +125,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
 
       if (mounted) {
         setState(() {
-          // Preserva os relatos locais que ainda não foram sincronizados
           final relatosPendentesLocais = _relatos.where((r) => !r.isSynced).toList();
           final List<RelatoModel> listaUnificada = [...relatosServidor];
 
@@ -159,17 +157,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   Future<void> _sincronizarRelatosOffline() async {
     setState(() => _sincronizando = true);
     try {
-      // 1. Atualização Otimista: desativa visualmente as nuvens imediatamente
       if (mounted) {
         setState(() {
           _relatos = _relatos.map((r) => r.copyWith(isSynced: true)).toList();
         });
       }
 
-      // 2. Envia os pendentes ao servidor
       final totalSincronizados = await ApiService.sincronizarPendentes();
-
-      // 3. Atualiza a lista oficial com a resposta do backend
       await _carregarRelatos();
 
       if (mounted) {
@@ -238,7 +232,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   IconData _getIconeRisco(String tipo) {
     switch (tipo.toUpperCase()) {
       case 'ALAGAMENTO': return Icons.water_damage;
-      case 'AQI':
       case 'QUALIDADE_AR': return Icons.air;
       case 'ILHA_CALOR': return Icons.thermostat;
       default: return Icons.warning_amber_rounded;
@@ -248,7 +241,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   String _getTituloRisco(String tipo) {
     switch (tipo.toUpperCase()) {
       case 'ALAGAMENTO': return 'Alagamento';
-      case 'AQI':
       case 'QUALIDADE_AR': return 'Qualidade do Ar';
       case 'ILHA_CALOR': return 'Ilha de Calor';
       default: return tipo;
@@ -454,12 +446,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               ),
             ],
           ),
-
           if (_carregando)
             const Center(
               child: CircularProgressIndicator(),
             ),
-
           Positioned(
             top: 16,
             right: 16,
@@ -488,7 +478,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               ),
             ),
           ),
-
           Positioned(
             bottom: 80,
             right: 16,
@@ -499,7 +488,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               child: const Icon(Icons.gps_fixed, color: Colors.blue),
             ),
           ),
-
           Positioned(
             bottom: 16,
             left: 16,
@@ -529,4 +517,5 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       ),
     );
   }
+}
 }
